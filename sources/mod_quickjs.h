@@ -1,7 +1,24 @@
-/**
- * (C)2021 aks
- * https://github.com/akscf/
- **/
+/*
+ * FreeSWITCH Modular Media Switching Software Library / Soft-Switch Application
+ * Copyright (C) 2005-2014, Anthony Minessale II <anthm@freeswitch.org>
+ *
+ * Version: MPL 1.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * Module Contributor(s):
+ *  aks  https://akstel.org
+ *
+ *
+ */
 #ifndef MOD_QUICKJS_H
 #define MOD_QUICKJS_H
 
@@ -24,9 +41,7 @@
 #define ARRAY_SIZE(a)       (sizeof(a) / sizeof((a)[0]))
 #define JID_NONE            0x0
 
-#define MOD_VERSION         "v1.7.8c"
-#define MOD_RT_TYPE         "opensource"
-
+#define MOD_VERSION         "v1.8.0"
 //#define MOD_QUICKJS_DEBUG
 
 typedef JSModuleDef *(JSInitModuleFunc)(JSContext *ctx, const char *module_name);
@@ -56,14 +71,16 @@ typedef struct {
     char                    *script_buf;
     char                    *args;
     const char              *session_id;
+    switch_queue_t          *chat_queue_ref; // refs: js_chat_t->queue
     switch_memory_pool_t    *pool;
     switch_mutex_t          *mutex;
+    switch_mutex_t          *mutex_chat;
     switch_core_session_t   *session;
     JSContext               *ctx;
     JSRuntime               *rt;
     void                    *opaque;
     js_list_t               *mod_hlist;
-    // builtin classes
+    /* builtin classes */
     JSClassID               class_id_codec;
     JSClassID               class_id_coredb;
     JSClassID               class_id_curl;
@@ -75,6 +92,8 @@ typedef struct {
     JSClassID               class_id_session;
     JSClassID               class_id_socket;
     JSClassID               class_id_xml;
+    JSClassID               class_id_chat;
+    JSClassID               class_id_jsonrpc;
 } script_t;
 
 typedef struct {
@@ -94,7 +113,7 @@ switch_status_t new_uuid(char **uuid, switch_memory_pool_t *pool);
 uint32_t script_sem_take(script_t *script);
 void script_sem_release(script_t *script);
 void script_wait_unlock(script_t *script);
-script_t *script_lookup(char *id);
+script_t *script_lookup(char *id, int lock);
 
 /* quickjs */
 int has_suffix(const char *str, const char *suffix);

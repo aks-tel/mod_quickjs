@@ -1,7 +1,24 @@
-/**
- * (C)2021-2025 aks
- * https://github.com/akscf/
- **/
+/*
+ * FreeSWITCH Modular Media Switching Software Library / Soft-Switch Application
+ * Copyright (C) 2005-2014, Anthony Minessale II <anthm@freeswitch.org>
+ *
+ * Version: MPL 1.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * Module Contributor(s):
+ *  aks  https://akstel.org
+ *
+ *
+ */
 #include "mod_quickjs.h"
 #include "js_xml.h"
 #include "js_coredb.h"
@@ -15,6 +32,8 @@
 #include "js_session.h"
 #include "js_curl.h"
 #include "js_dbh.h"
+#include "js_jsonrpc.h"
+#include "js_chat.h"
 
 globals_t globals;
 
@@ -631,6 +650,7 @@ static switch_status_t script_launch(switch_core_session_t *session, char *scrip
     script->session = session;
 
     switch_mutex_init(&script->mutex, SWITCH_MUTEX_NESTED, pool);
+    switch_mutex_init(&script->mutex_chat, SWITCH_MUTEX_NESTED, pool);
 
     status = script_load(script);
     if(status != SWITCH_STATUS_SUCCESS) {
@@ -719,10 +739,11 @@ static void *SWITCH_THREAD_FUNC script_thread(switch_thread_t *thread, void *obj
     js_xml_class_register(ctx, global_obj, 1008);
     js_curl_class_register(ctx, global_obj, 1009);
     js_dbh_class_register(ctx, global_obj, 10010);
+    js_jsonrpc_class_register(ctx, global_obj, 10011);
+    js_chat_class_register(ctx, global_obj, 10012);
     script->fl_ready = false; // clear
 
     runtime_obj = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, runtime_obj, "type", JS_NewString(ctx, MOD_RT_TYPE));
     JS_SetPropertyStr(ctx, runtime_obj, "version", JS_NewString(ctx, MOD_VERSION));
     JS_SetPropertyStr(ctx, runtime_obj, "switchId", JS_NewString(ctx, switch_core_get_uuid()));
     JS_SetPropertyStr(ctx, runtime_obj, "switchName", JS_NewString(ctx, switch_core_get_switchname()));
@@ -903,14 +924,15 @@ SWITCH_STANDARD_API(quickjs_cmd) {
         char *id = (argc > 1 ? argv[1] : NULL);
         int success = 0;
 
-        script = script_lookup(id);
-        if(script_sem_take(script)) {
+        script = script_lookup(id, SWITCH_TRUE);
+        if(script) {
             if(script->fl_ready && !script->fl_destroyed) {
                 script->fl_interrupt = true;
                 success++;
             }
             script_sem_release(script);
         }
+
         stream->write_function(stream, (success ? "+OK\n" : "-ERR: not found\n") );
         goto out;
     }
@@ -948,6 +970,45 @@ usage:
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "%s\n", APP_SYNTAX);
 out:
     switch_safe_free(mycmd);
+}
+
+// chat handler
+static switch_status_t xxx_chat_api(switch_event_t *message_event) {
+    switch_status_t status = SWITCH_STATUS_FALSE;
+        const char *to = switch_event_get_header(message_event, "to");      // scriptId
+        const char *from = switch_event_get_header(message_event, "from");  // anything
+        const char *body = switch_event_get_body(message_event);
+    script_t *script = NULL;
+
+    if(zstr(to) || zstr(body) || zstr(from)) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Invalid chat message (to|from|bosy)\n");
+        return SWITCH_STATUS_FALSE;
+    }
+
+    if((script = script_lookup((char *)to, SWITCH_TRUE))) {
+        if(script->chat_queue_ref && script->fl_ready && !script->fl_destroyed) {
+            js_chat_message_t *msg = NULL;
+
+            if(js_chat_message_alloc(&msg, from, body, body ? strlen(body) : 0) == SWITCH_STATUS_SUCCESS) {
+
+                switch_mutex_lock(script->mutex_chat);
+                if(script->chat_queue_ref) {
+                    status = switch_queue_trypush(script->chat_queue_ref, msg);
+                }
+                switch_mutex_unlock(script->mutex_chat);
+
+                if(status != SWITCH_STATUS_SUCCESS) {
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Chat queue is full (%s)\n", script->id);
+                    js_chat_message_free(&msg);
+                }
+            }
+        }
+        script_sem_release(script);
+    } else {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Script not found (%s)\n", to);
+    }
+
+    return status;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -1005,7 +1066,8 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_quickjs_load) {
     SWITCH_ADD_APP(app_interface, "qjs", "quickjs", "quickjs", quickjs_app, APP_SYNTAX, SAF_NONE);
 
     globals.fl_shutdown = false;
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "mod_quckjs (%s) [%s]\n", MOD_VERSION, MOD_RT_TYPE);
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "QuickJS (%s)\n", MOD_VERSION);
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "(C)2021-2026 akstel.org\n");
 
 done:
     if(xml) {

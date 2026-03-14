@@ -19,28 +19,30 @@
  *
  *
  */
-#ifndef JS_SOCKET_H
-#define JS_SOCKET_H
+#ifndef JS_CHAT_H
+#define JS_CHAT_H
 #include "mod_quickjs.h"
 
+#define JS_CHAT_QUEUE_SIZE 1024
+
 typedef struct {
-    uint8_t                 opened;
-    uint8_t                 type;
-    uint8_t                 nonblock;
-    uint8_t                 mcttl;
-    uint32_t                timeout;
-    switch_sockaddr_t       *toaddr;
-    switch_sockaddr_t       *loaddr;
-    switch_size_t           buffer_size;
     switch_memory_pool_t    *pool;
-    switch_socket_t         *socket;
-    char                    *read_buffer;
-} js_socket_t;
+    switch_mutex_t          *mutex;
+    switch_queue_t          *inq;
+} js_chat_t;
 
-JSClassID js_socket_get_classid(JSContext *ctx);
-JSClassID js_socket_get_classid2(JSRuntime *rt);
-switch_status_t js_socket_class_register(JSContext *ctx, JSValue global_obj, JSClassID class_id);
+typedef struct {
+    char        *from;
+    char        *body;
+    uint32_t    body_len;
+} js_chat_message_t;
 
+JSClassID js_chat_get_classid(JSContext *ctx);
+JSClassID js_chat_get_classid2(JSRuntime *rt);
+switch_status_t js_chat_class_register(JSContext *ctx, JSValue global_obj, JSClassID class_id);
+
+switch_status_t js_chat_message_free(js_chat_message_t **msg);
+switch_status_t js_chat_message_alloc(js_chat_message_t **msg, const char *from, const char *body, uint32_t body_len);
 
 #endif
 
