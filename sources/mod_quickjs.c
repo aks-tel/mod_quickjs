@@ -1065,6 +1065,8 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_quickjs_load) {
     SWITCH_ADD_API(cmd_interface, "qjs", "quickjs", quickjs_cmd, CMD_SYNTAX);
     SWITCH_ADD_APP(app_interface, "qjs", "quickjs", "quickjs", quickjs_app, APP_SYNTAX, SAF_NONE);
 
+    SWITCH_ADD_CHAT(chat_interface, QJS_CHAT_PROTO, xxx_chat_api);
+
     globals.fl_shutdown = false;
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "QuickJS (%s)\n", MOD_VERSION);
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "(C)2021-2026 akstel.org\n");
