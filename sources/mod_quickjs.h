@@ -38,10 +38,11 @@
 #endif
 
 #define QJS_IS_NULL(jsV)    (JS_IsNull(jsV) || JS_IsUndefined(jsV) || JS_IsUninitialized(jsV))
-#define ARRAY_SIZE(a)       (sizeof(a) / sizeof((a)[0]))
+#define QJS_ARRAY_SIZE(a)   (sizeof(a) / sizeof((a)[0]))
 #define JID_NONE            0x0
+#define QJS_CHAT_PROTO      "QJS"
 
-#define MOD_VERSION         "v1.8.0"
+#define MOD_VERSION         "v1.8.1"
 //#define MOD_QUICKJS_DEBUG
 
 typedef JSModuleDef *(JSInitModuleFunc)(JSContext *ctx, const char *module_name);

@@ -115,7 +115,7 @@ static JSValue js_socket_connect(JSContext *ctx, JSValueConst this_val, int argc
     SOCKET_SANITY_CHECK();
 
     if(argc < 2) {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "connect(hostName, port)");
     }
 
     if(js_socket->opened) {
@@ -206,7 +206,8 @@ static JSValue js_socket_close(JSContext *ctx, JSValueConst this_val, int argc, 
     js_socket_t *js_socket = JS_GetOpaque2(ctx, this_val, js_socket_get_classid(ctx));
 
     if(!js_socket) {
-        return JS_ThrowTypeError(ctx, "Socket not initialized");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "js_socket == null\n");
+        return JS_FALSE;
     }
     if(!js_socket->opened) {
         return JS_TRUE;
@@ -232,7 +233,7 @@ static JSValue js_socket_write(JSContext *ctx, JSValueConst this_val, int argc, 
     uint8_t *buf = NULL;
 
     if(argc < 2)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "write(buffer, len)");
     }
 
     buf = JS_GetArrayBuffer(ctx, &buf_size, argv[0]);
@@ -245,7 +246,8 @@ static JSValue js_socket_write(JSContext *ctx, JSValueConst this_val, int argc, 
         return JS_NewInt64(ctx, 0);
     }
     if(len > buf_size) {
-        return JS_ThrowRangeError(ctx, "len > buffer.size");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "len > buf_size\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     if(js_socket->type == S_TYPE_UDP) {
@@ -258,8 +260,8 @@ static JSValue js_socket_write(JSContext *ctx, JSValueConst this_val, int argc, 
 
     if(js_socket->type == S_TYPE_TCP) {
         if(switch_socket_send(js_socket->socket, buf, &len) != SWITCH_STATUS_SUCCESS) {
-            if(!len) { return JS_NewInt64(ctx, 0); }
-            return JS_EXCEPTION;
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Socket write failed\n");
+            return JS_NewInt64(ctx, 0);
         }
         return JS_NewInt64(ctx, len);
     }
@@ -275,7 +277,7 @@ static JSValue js_socket_read(JSContext *ctx, JSValueConst this_val, int argc, J
     uint8_t *buf = NULL;
 
     if(argc < 2)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "read(buf, len)");
     }
 
     buf = JS_GetArrayBuffer(ctx, &buf_size, argv[0]);
@@ -288,12 +290,13 @@ static JSValue js_socket_read(JSContext *ctx, JSValueConst this_val, int argc, J
         return JS_NewInt64(ctx, 0);
     }
     if(len > buf_size) {
-        return JS_ThrowRangeError(ctx, "len > buffer.size");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "len > buf_size\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     if(switch_socket_recv(js_socket->socket, buf, &len) != SWITCH_STATUS_SUCCESS) {
-        if(!len) { return JS_NewInt64(ctx, 0); }
-        return JS_EXCEPTION;
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Socket read failed\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     return JS_NewInt64(ctx, len);
@@ -308,15 +311,17 @@ static JSValue js_socket_write_string(JSContext *ctx, JSValueConst this_val, int
 
     SOCKET_SANITY_CHECK();
 
-    if(!js_socket->opened) {
-        return JS_ThrowTypeError(ctx, "Socket is closed");
-    }
     if(argc < 1) {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "writeString(str)");
     }
 
     if(QJS_IS_NULL(argv[0])) {
-        success = 0; goto out;
+        return JS_FALSE;
+    }
+
+    if(!js_socket->opened) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Socket is closed\n");
+        return JS_FALSE;
     }
 
     data = JS_ToCString(ctx, argv[0]);
@@ -618,7 +623,7 @@ switch_status_t js_socket_class_register(JSContext *ctx, JSValue global_obj, JSC
 #endif
 
     obj_proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj_proto, js_socket_proto_funcs, ARRAY_SIZE(js_socket_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, obj_proto, js_socket_proto_funcs, QJS_ARRAY_SIZE(js_socket_proto_funcs));
 
     obj_class = JS_NewCFunction2(ctx, js_socket_contructor, CLASS_NAME, 1, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj_class, obj_proto);

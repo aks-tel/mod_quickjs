@@ -491,7 +491,7 @@ switch_status_t js_coredb_class_register(JSContext *ctx, JSValue global_obj, JSC
 #endif
 
     obj_proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj_proto, js_coredb_proto_funcs, ARRAY_SIZE(js_coredb_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, obj_proto, js_coredb_proto_funcs, QJS_ARRAY_SIZE(js_coredb_proto_funcs));
 
     obj_class = JS_NewCFunction2(ctx, js_coredb_contructor, CLASS_NAME, 1, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj_class, obj_proto);

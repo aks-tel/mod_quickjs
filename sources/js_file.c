@@ -41,14 +41,6 @@
            return JS_ThrowTypeError(ctx, "File is not initialized"); \
         }
 
-#define FILE_SANITY_CHECK_OPEN() if (!js_file || !js_file->fd) { \
-           return JS_ThrowTypeError(ctx, "File is not opened"); \
-        }
-
-#define DIR_SANITY_CHECK_OPEN() if (!js_file || !js_file->dir) { \
-           return JS_ThrowTypeError(ctx, "Direactory is not opened"); \
-        }
-
 static void js_file_finalizer(JSRuntime *rt, JSValue val);
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -314,15 +306,15 @@ static JSValue js_file_read(JSContext *ctx, JSValueConst this_val, int argc, JSV
     switch_size_t size = 0, len = 0;
     uint8_t *buf = NULL;
 
-    FILE_SANITY_CHECK_OPEN();
+    FILE_SANITY_CHECK();
 
     if(argc < 2)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "read(buffer, len)");
     }
 
     buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
     if(!buf) {
-        return JS_EXCEPTION;
+        return JS_ThrowTypeError(ctx, "Inavalid arguament: buffer");
     }
 
     JS_ToInt64(ctx, &len, argv[1]);
@@ -330,14 +322,18 @@ static JSValue js_file_read(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_NewInt64(ctx, 0);
     }
     if(len > size) {
-        return JS_ThrowRangeError(ctx, "Array buffer overflow (len > array size)");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "len > array size\n");
+        return JS_NewInt64(ctx, 0);
+    }
+
+    if(!js_file->fd) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "File is not opened\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     if(switch_file_read(js_file->fd, buf, &len) != SWITCH_STATUS_SUCCESS) {
-        if(len == 0) {
-            return JS_NewInt64(ctx, 0);
-        }
-        return JS_EXCEPTION;
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Uable to read file\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     return JS_NewInt64(ctx, len);
@@ -348,28 +344,34 @@ static JSValue js_file_write(JSContext *ctx, JSValueConst this_val, int argc, JS
     switch_size_t size = 0, len = 0;
     uint8_t *buf = NULL;
 
-    FILE_SANITY_CHECK_OPEN();
+    FILE_SANITY_CHECK();
 
     if(argc < 2)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "write(buffer, len)");
     }
 
     buf = JS_GetArrayBuffer(ctx, &size, argv[0]);
     if(!buf) {
-        return JS_EXCEPTION;
+        return JS_ThrowTypeError(ctx, "Inavalid arguament: buffer");
     }
 
     JS_ToInt64(ctx, &len, argv[1]);
     if(len <= 0) {
         return JS_NewInt64(ctx, 0);
     }
-
     if(len > size) {
-        return JS_ThrowRangeError(ctx, "Array buffer overflow (len > array size)");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "len > array size\n");
+        return JS_NewInt64(ctx, 0);
+    }
+
+    if(!js_file->fd) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "File is not opened\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     if(switch_file_write(js_file->fd, buf, &len) != SWITCH_STATUS_SUCCESS) {
-        return JS_EXCEPTION;
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Uable to write file\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     return JS_NewInt64(ctx, len);
@@ -381,38 +383,50 @@ static JSValue js_file_write_str(JSContext *ctx, JSValueConst this_val, int argc
     switch_size_t len = 0;
     const char *str = NULL;
 
-    FILE_SANITY_CHECK_OPEN();
+    FILE_SANITY_CHECK();
 
     if(argc < 1)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "writeString(str)");
     }
 
     if(QJS_IS_NULL(argv[0])) {
         return JS_NewInt64(ctx, 0);
     }
 
+    if(!js_file->fd) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "File is not opened\n");
+        return JS_NewInt64(ctx, 0);
+    }
+
     str = JS_ToCString(ctx, argv[0]);
     len = strlen(str);
 
-    status = switch_file_write(js_file->fd, str, &len);
+    if((status = switch_file_write(js_file->fd, str, &len)) != SWITCH_STATUS_SUCCESS) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to write file\n");
+    }
     JS_FreeCString(ctx, str);
 
-    return (status == SWITCH_STATUS_SUCCESS ? JS_NewInt64(ctx, len) : JS_EXCEPTION);
+    return (status == SWITCH_STATUS_SUCCESS ? JS_NewInt64(ctx, len) : JS_NewInt64(ctx, 0));
 }
 
 static JSValue js_file_read_str(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     js_file_t *js_file = JS_GetOpaque2(ctx, this_val, js_file_get_classid(ctx));
     switch_size_t len = 0;
 
-    FILE_SANITY_CHECK_OPEN();
+    FILE_SANITY_CHECK();
 
     if(argc < 1)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "readString(len)");
     }
 
     JS_ToInt64(ctx, &len, argv[0]);
     if(len <= 0) {
         return JS_UNDEFINED;
+    }
+
+    if(!js_file->fd) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "File is not opened\n");
+        return JS_NewInt64(ctx, 0);
     }
 
     if(!js_file->rdbuf || len > js_file->rdbuf_size) {
@@ -421,10 +435,8 @@ static JSValue js_file_read_str(JSContext *ctx, JSValueConst this_val, int argc,
     }
 
     if(switch_file_read(js_file->fd, js_file->rdbuf, &len) != SWITCH_STATUS_SUCCESS) {
-        if(len == 0) {
-            return JS_UNDEFINED;
-        }
-        return JS_EXCEPTION;
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to read file\n");
+        return JS_UNDEFINED;
     }
 
     return JS_NewStringLen(ctx, js_file->rdbuf, len);
@@ -434,14 +446,18 @@ static JSValue js_file_seek(JSContext *ctx, JSValueConst this_val, int argc, JSV
     js_file_t *js_file = JS_GetOpaque2(ctx, this_val, js_file_get_classid(ctx));
     int64_t ofs = 0;
 
-
-    FILE_SANITY_CHECK_OPEN();
+    FILE_SANITY_CHECK();
 
     if(argc < 1)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "seek(pos)");
     }
 
     JS_ToInt64(ctx, &ofs, argv[0]);
+
+    if(!js_file->fd) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "File is not opened\n");
+        return JS_NewInt64(ctx, 0);
+    }
 
     if(switch_file_seek(js_file->fd, SEEK_SET, &ofs) == SWITCH_STATUS_SUCCESS) {
         return JS_TRUE;
@@ -467,7 +483,8 @@ static JSValue js_file_remove(JSContext *ctx, JSValueConst this_val, int argc, J
     }
 
     if(strlen(js_file->path) == 1 && strncmp("/", js_file->path, 1) == 0)  {
-        return JS_ThrowTypeError(ctx, "Root dir can't be deleted");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You can't delete root dir!\n");
+        return JS_FALSE;
     }
 
     cmd = switch_mprintf("rm -rf %s", js_file->path);
@@ -486,12 +503,8 @@ static JSValue js_file_rename(JSContext *ctx, JSValueConst this_val, int argc, J
 
     FILE_SANITY_CHECK();
 
-    if(argc < 1)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
-    }
-
-    if(QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: toPath");
+    if(argc < 1 || QJS_IS_NULL(argv[0]))  {
+        return JS_ThrowTypeError(ctx, "rename(toPath)");
     }
 
     to_path = JS_ToCString(ctx, argv[0]);
@@ -513,12 +526,8 @@ static JSValue js_file_copy(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
     FILE_SANITY_CHECK();
 
-    if(argc < 1)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
-    }
-
-    if(QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: toPath");
+    if(argc < 1 || QJS_IS_NULL(argv[0]))  {
+        return JS_ThrowTypeError(ctx, "copy(toPath)");
     }
 
     to_path = JS_ToCString(ctx, argv[0]);
@@ -535,7 +544,7 @@ static JSValue js_file_mkdir(JSContext *ctx, JSValueConst this_val, int argc, JS
 
     FILE_SANITY_CHECK();
 
-   if(switch_directory_exists(js_file->path, js_file->pool) == SWITCH_STATUS_SUCCESS) {
+    if(switch_directory_exists(js_file->path, js_file->pool) == SWITCH_STATUS_SUCCESS) {
         return JS_TRUE;
     }
 
@@ -552,16 +561,20 @@ static JSValue js_file_dir_list(JSContext *ctx, JSValueConst this_val, int argc,
     JSValue ret_val;
     JSValue args[2] = { 0 };
 
-    DIR_SANITY_CHECK_OPEN();
+    FILE_SANITY_CHECK();
 
     if(argc < 1)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "list(callback)");
     }
-
     if(!JS_IsFunction(ctx, argv[0])) {
         return JS_ThrowTypeError(ctx, "Invalid argument: callback");
     }
     js_cb = argv[0];
+
+    if(!js_file->dir) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Directory is not opened\n");
+        return JS_FALSE;
+    }
 
     while(1) {
         const char *fname = NULL;
@@ -664,12 +677,8 @@ static JSValue js_file_contructor(JSContext *ctx, JSValueConst new_target, int a
     switch_memory_pool_t *pool = NULL;
     const char *path = NULL;
 
-    if(argc < 1) {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
-    }
-
-    if(QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: filename");
+    if(argc < 1 || QJS_IS_NULL(argv[0])) {
+        return JS_ThrowTypeError(ctx, "File(path)");
     }
 
     path = JS_ToCString(ctx, argv[0]);
@@ -747,7 +756,7 @@ switch_status_t js_file_class_register(JSContext *ctx, JSValue global_obj, JSCla
 #endif
 
     obj_proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj_proto, js_file_proto_funcs, ARRAY_SIZE(js_file_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, obj_proto, js_file_proto_funcs, QJS_ARRAY_SIZE(js_file_proto_funcs));
 
     obj_class = JS_NewCFunction2(ctx, js_file_contructor, CLASS_NAME, 1, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj_class, obj_proto);

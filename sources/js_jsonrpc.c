@@ -530,7 +530,7 @@ switch_status_t js_jsonrpc_class_register(JSContext *ctx, JSValue global_obj, JS
 #endif
 
     obj_proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj_proto, js_jsonrpc_proto_funcs, ARRAY_SIZE(js_jsonrpc_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, obj_proto, js_jsonrpc_proto_funcs, QJS_ARRAY_SIZE(js_jsonrpc_proto_funcs));
 
     obj_class = JS_NewCFunction2(ctx, js_jsonrpc_contructor, CLASS_NAME, 1, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj_class, obj_proto);

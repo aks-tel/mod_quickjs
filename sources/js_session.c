@@ -56,27 +56,6 @@
            return JS_ThrowTypeError(ctx, "Session is not initialized"); \
         }
 
-#define CHANNEL_SANITY_CHECK() do { \
-           if(!switch_channel_ready(channel)) { \
-                return JS_ThrowTypeError(ctx, "Channel is not ready"); \
-           } \
-           if(!((switch_channel_test_flag(channel, CF_ANSWERED) || switch_channel_test_flag(channel, CF_EARLY_MEDIA)))) { \
-                return JS_ThrowTypeError(ctx, "Session is not answered!"); \
-           } \
-        } while(0)
-
-#define CHANNEL_SANITY_CHECK_ANSWER() do { \
-         if (!switch_channel_ready(channel)) { \
-            return JS_ThrowTypeError(ctx, "Session is not active!"); \
-         }                                                                                                                               \
-        } while(0)
-
-#define CHANNEL_MEDIA_SANITY_CHECK() do { \
-        if(!switch_channel_media_ready(channel)) { \
-            return JS_ThrowTypeError(ctx, "Session is not in media mode!"); \
-        } \
-    } while(0)
-
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 typedef struct {
     js_session_t    *jss;
@@ -314,7 +293,7 @@ static JSValue  js_session_speak(JSContext *ctx, JSValueConst this_val, int argc
 
     text = JS_ToCString(ctx, argv[0]);
     if(zstr(text)) {
-        return JS_ThrowTypeError(ctx, "Invalid agument: text");
+        return JS_TRUE;
     }
 
     if(argc > 1) {
@@ -387,7 +366,7 @@ static JSValue  js_session_speak_ex(JSContext *ctx, JSValueConst this_val, int a
         }
     }
     if(QJS_IS_NULL(argv[2])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: text");
+        return JS_TRUE;
     }
 
     tts_engine = JS_ToCString(ctx, argv[0]);
@@ -1254,6 +1233,7 @@ static JSValue js_session_flush_events(JSContext *ctx, JSValueConst this_val, in
     switch_event_t *event;
 
     SESSION_SANITY_CHECK();
+
     while(switch_core_session_dequeue_event(jss->session, &event, false) == SWITCH_STATUS_SUCCESS) {
         switch_event_destroy(&event);
     }
@@ -1536,6 +1516,7 @@ static JSValue js_session_hangup(JSContext *ctx, JSValueConst this_val, int argc
     switch_call_cause_t cause = SWITCH_CAUSE_NORMAL_CLEARING;
 
     SESSION_SANITY_CHECK();
+
     channel = switch_core_session_get_channel(jss->session);
 
     if(switch_channel_up(channel)) {
@@ -1565,6 +1546,7 @@ static JSValue js_session_execute(JSContext *ctx, JSValueConst this_val, int arg
     JSValue result = JS_FALSE;
 
     SESSION_SANITY_CHECK();
+
     channel = switch_core_session_get_channel(jss->session);
 
     if(argc > 0) {
@@ -1590,7 +1572,7 @@ static JSValue js_session_execute(JSContext *ctx, JSValueConst this_val, int arg
     return result;
 }
 
-// sleep(msec, [cbHook])
+// sleep(msec, [callback])
 static JSValue js_session_sleep(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     js_session_t *jss = JS_GetOpaque2(ctx, this_val, js_session_get_classid(ctx));
     switch_channel_t *channel = NULL;
@@ -1599,9 +1581,16 @@ static JSValue js_session_sleep(JSContext *ctx, JSValueConst this_val, int argc,
     int msec = 0;
 
     SESSION_SANITY_CHECK();
+
     channel = switch_core_session_get_channel(jss->session);
-    CHANNEL_SANITY_CHECK();
-    CHANNEL_MEDIA_SANITY_CHECK();
+    if(!switch_channel_ready(channel)) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Channel is not ready\n");
+        return JS_FALSE;
+    }
+    if(!switch_channel_media_ready(channel)) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Media is not ready\n");
+        return JS_FALSE;
+    }
 
     if(argc) {
         JS_ToUint32(ctx, &msec, argv[0]);
@@ -1628,25 +1617,26 @@ static JSValue js_session_sleep(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_TRUE;
 }
 
+// genTones(toneScript, [callback])
 static JSValue js_session_gen_tones(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     js_session_t *jss = JS_GetOpaque2(ctx, this_val, js_session_get_classid(ctx));
     switch_channel_t *channel = NULL;
     input_callback_state_t cb_state = { 0 };
-        switch_input_args_t args = { 0 };
+    switch_input_args_t args = { 0 };
     const char *tone_script = NULL;
     char *buf = NULL, *p = NULL;
     int loops = 0;
 
     SESSION_SANITY_CHECK();
-    channel = switch_core_session_get_channel(jss->session);
-    CHANNEL_SANITY_CHECK();
 
-    if(!argc) {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+    channel = switch_core_session_get_channel(jss->session);
+    if(!switch_channel_ready(channel)) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Channel is not ready\n");
+        return JS_FALSE;
     }
 
-    if(QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: toneScript");
+    if(!argc || QJS_IS_NULL(argv[0])) {
+        return JS_ThrowTypeError(ctx, "genTones(toneScript, [callback])");
     }
 
     tone_script = JS_ToCString(ctx, argv[0]);
@@ -1695,6 +1685,7 @@ static JSValue js_session_get_write_codec(JSContext *ctx, JSValueConst this_val,
     return js_codec_from_session_wcodec(ctx, jss->session);
 }
 
+// frameRead(buffer)
 static JSValue js_session_frame_read(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     js_session_t *jss = JS_GetOpaque2(ctx, this_val, js_session_get_classid(ctx));
     switch_status_t status;
@@ -1706,7 +1697,7 @@ static JSValue js_session_frame_read(JSContext *ctx, JSValueConst this_val, int 
     SESSION_SANITY_CHECK();
 
     if(!argc)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "frameRead(buffer)");
     }
 
     buf = JS_GetArrayBuffer(ctx, &buf_size, argv[0]);
@@ -1723,6 +1714,7 @@ static JSValue js_session_frame_read(JSContext *ctx, JSValueConst this_val, int 
     return JS_NewInt64(ctx, len);
 }
 
+// writeFrame(buffer, len, [codec])
 static JSValue js_session_frame_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     js_session_t *jss = JS_GetOpaque2(ctx, this_val, js_session_get_classid(ctx));
     switch_codec_t *wcodec = NULL;
@@ -1735,7 +1727,7 @@ static JSValue js_session_frame_write(JSContext *ctx, JSValueConst this_val, int
     SESSION_SANITY_CHECK();
 
     if(argc < 2)  {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "writeFrame(buffer, len, [codec])");
     }
 
     buf = JS_GetArrayBuffer(ctx, &buf_size, argv[0]);
@@ -1748,7 +1740,8 @@ static JSValue js_session_frame_write(JSContext *ctx, JSValueConst this_val, int
         return JS_NewInt64(ctx, 0);
     }
     if(len > buf_size) {
-        return JS_ThrowRangeError(ctx, "len > buffer.size");
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "len > buffer.size \n");
+        return JS_NewInt64(ctx, 0);
     }
 
     if(argc > 2) {
@@ -1760,7 +1753,8 @@ static JSValue js_session_frame_write(JSContext *ctx, JSValueConst this_val, int
     if(!wcodec) {
         wcodec = switch_core_session_get_write_codec(jss->session);
         if(!wcodec) {
-            return JS_ThrowRangeError(ctx, "No suitable codec");
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "wcodec == null\n");
+            return JS_NewInt64(ctx, 0);
         }
     }
 
@@ -2144,7 +2138,7 @@ switch_status_t js_session_class_register(JSContext *ctx, JSValue global_obj, JS
 #endif
 
     obj_proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj_proto, js_session_proto_funcs, ARRAY_SIZE(js_session_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, obj_proto, js_session_proto_funcs, QJS_ARRAY_SIZE(js_session_proto_funcs));
 
     obj_class = JS_NewCFunction2(ctx, js_session_contructor, CLASS_NAME, 2, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj_class, obj_proto);
@@ -2168,13 +2162,12 @@ JSValue js_session_object_create(JSContext *ctx, switch_core_session_t *session)
 
     proto = JS_NewObject(ctx);
     if(JS_IsException(proto)) { return proto; }
-    JS_SetPropertyFunctionList(ctx, proto, js_session_proto_funcs, ARRAY_SIZE(js_session_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, proto, js_session_proto_funcs, QJS_ARRAY_SIZE(js_session_proto_funcs));
 
     obj = JS_NewObjectProtoClass(ctx, proto, js_session_get_classid(ctx));
     JS_FreeValue(ctx, proto);
     if(JS_IsException(obj)) { return obj; }
 
-    //
     switch_mutex_init(&jss->mutex, SWITCH_MUTEX_NESTED, switch_core_session_get_pool(session));
     switch_core_session_get_read_impl(session, &read_impl);
 

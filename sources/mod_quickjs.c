@@ -78,12 +78,12 @@ static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_UNDEFINED;
 }
 
-// mssleep(delayMsec)
+// msleep(delayMsec)
 static JSValue js_msleep(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     uint32_t msec = 0;
 
     if(argc < 1) {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
+        return JS_ThrowTypeError(ctx, "msleep(delayMsec)");
     }
 
     JS_ToUint32(ctx, &msec, argv[0]);
@@ -100,11 +100,8 @@ static JSValue js_global_set(JSContext *ctx, JSValueConst this_val, int argc, JS
     const char *var_str = NULL;
     const char *val_str = NULL;
 
-    if(argc < 2) {
-        return JS_ThrowTypeError(ctx, "Not enough arguments");
-    }
-    if(QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: varName");
+    if(argc < 2 || QJS_IS_NULL(argv[0])) {
+        return JS_ThrowTypeError(ctx, "setValiable(name, value)");
     }
 
     var_str = JS_ToCString(ctx, argv[0]);
@@ -124,7 +121,7 @@ static JSValue js_global_get(JSContext *ctx, JSValueConst this_val, int argc, JS
     char *val = NULL;
 
     if(argc < 1 || QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: varName");
+        return JS_ThrowTypeError(ctx, "getValiable(name)");
     }
 
     var_str = JS_ToCString(ctx, argv[0]);
@@ -182,6 +179,7 @@ static JSValue js_system(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_NewInt32(ctx, result);
 }
 
+// apiExecute(api,[args])
 static JSValue js_api_execute(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     const char *api_str;
     const char *arg_str;
@@ -191,11 +189,11 @@ static JSValue js_api_execute(JSContext *ctx, JSValueConst this_val, int argc, J
 
     script = JS_GetContextOpaque(ctx);
     if(!script) {
-        return JS_ThrowTypeError(ctx, "Malformed ctx");
+        return JS_ThrowTypeError(ctx, "script == null");
     }
 
     if(argc < 1 || QJS_IS_NULL(argv[0])) {
-        return JS_ThrowTypeError(ctx, "Invalid argument: api");
+        return JS_ThrowTypeError(ctx, "apiExecute(api, [args])");
     }
 
     api_str = JS_ToCString(ctx, argv[0]);
@@ -272,7 +270,7 @@ static JSValue js_unlink(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     const char *fpath = NULL;
 
     if(!script) {
-        return JS_ThrowTypeError(ctx, "Invalid ctx");
+        return JS_ThrowTypeError(ctx, "script == null");
     }
 
     if(argc < 1) {
@@ -295,7 +293,7 @@ static JSValue js_mkdir(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     JSValue ret_val = JS_FALSE;
 
     if(!script) {
-        return JS_ThrowTypeError(ctx, "Invalid ctx");
+        return JS_ThrowTypeError(ctx, "script == null");
     }
 
     if(argc < 1) {
@@ -324,7 +322,7 @@ static JSValue js_file_exists(JSContext *ctx, JSValueConst this_val, int argc, J
     JSValue ret_val = JS_FALSE;
 
     if(!script) {
-        return JS_ThrowTypeError(ctx, "Invalid ctx");
+        return JS_ThrowTypeError(ctx, "script == null");
     }
 
     if(argc < 1) {
@@ -476,7 +474,7 @@ static JSModuleDef *xxx_js_module_loader(JSContext *ctx, const char *module_name
     }
 
     if(!buf) {
-        JS_ThrowReferenceError(ctx, "Unable to load module '%s'", module_name);
+        JS_ThrowReferenceError(ctx, "Unable to load module (%s)", module_name);
         return NULL;
     }
 
@@ -763,7 +761,7 @@ static void *SWITCH_THREAD_FUNC script_thread(switch_thread_t *thread, void *obj
         char *argv[32] = { 0 };
         int argc = 0;
 
-        argc = switch_separate_string(script->args, ' ', argv, ARRAY_SIZE(argv));
+        argc = switch_separate_string(script->args, ' ', argv, QJS_ARRAY_SIZE(argv));
         argc_obj = JS_NewInt32(ctx, argc);
         argv_obj = JS_NewArray(ctx);
 
@@ -1020,6 +1018,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_quickjs_load) {
     switch_xml_t cfg = NULL, xml = NULL, xml_settings = NULL, xml_param = NULL, xml_scripts = NULL, xml_script = NULL;
     switch_api_interface_t *cmd_interface;
     switch_application_interface_t *app_interface;
+    switch_chat_interface_t *chat_interface = NULL;
 
     memset(&globals, 0, sizeof (globals));
     switch_core_hash_init(&globals.scripts_map);

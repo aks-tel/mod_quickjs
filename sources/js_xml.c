@@ -388,7 +388,7 @@ static JSValue js_xml_object_create(JSContext *ctx, switch_xml_t xml) {
 
     proto = JS_NewObject(ctx);
     if(JS_IsException(proto)) { return proto; }
-    JS_SetPropertyFunctionList(ctx, proto, js_xml_proto_funcs, ARRAY_SIZE(js_xml_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, proto, js_xml_proto_funcs, QJS_ARRAY_SIZE(js_xml_proto_funcs));
 
     obj = JS_NewObjectProtoClass(ctx, proto, js_xml_get_classid(ctx));
     JS_FreeValue(ctx, proto);
@@ -439,7 +439,7 @@ switch_status_t js_xml_class_register(JSContext *ctx, JSValue global_obj, JSClas
 #endif
 
     obj_proto = JS_NewObject(ctx);
-    JS_SetPropertyFunctionList(ctx, obj_proto, js_xml_proto_funcs, ARRAY_SIZE(js_xml_proto_funcs));
+    JS_SetPropertyFunctionList(ctx, obj_proto, js_xml_proto_funcs, QJS_ARRAY_SIZE(js_xml_proto_funcs));
 
     obj_class = JS_NewCFunction2(ctx, js_xml_contructor, CLASS_NAME, 1, JS_CFUNC_constructor, 0);
     JS_SetConstructor(ctx, obj_class, obj_proto);
