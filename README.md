@@ -22,15 +22,15 @@ Was an experimental version for testing some ideas
  - new features in the Curl class that allows to work in asynchronous mode <br>
    see: curl_async_test.js
  - new examples: <br>
-    - [Stream capturing and working with chunks](https://github.com/aks-devs/mod_quickjs/blob/main/examples/v16_echo.js)
-    - [Simple transcription through whispered](https://github.com/aks-devs/mod_quickjs/blob/main/examples/v16_whisperd.js)
-    - [Voice assistant based on OpenAI services (chatGPT + whisper)](https://github.com/aks-devs/mod_quickjs/blob/main/examples/v16_chatgpt.js)
-    - [Asynchronous requests in the Curl](https://github.com/aks-devs/mod_quickjs/blob/main/examples/curl_async_test.js)
+    - [Stream capturing and working with chunks](https://github.com/aks-tel/mod_quickjs/blob/main/examples/v16_echo.js)
+    - [Simple transcription through whispered](https://github.com/aks-tel/mod_quickjs/blob/main/examples/v16_whisperd.js)
+    - [Voice assistant based on OpenAI services (chatGPT + whisper)](https://github.com/aks-tel/mod_quickjs/blob/main/examples/v16_chatgpt.js)
+    - [Asynchronous requests in the Curl](https://github.com/aks-tel/mod_quickjs/blob/main/examples/curl_async_test.js)
  
 ## version 1.0
  Quite old version, developed as a replacement for mod_spidermonkey (with capabilities to launch its scripts without changes)
- - [Build and installation guide](https://github.com/aks-devs/mod_quickjs/blob/main/docs/installation_guide.pdf)
- - [Functions](https://github.com/aks-devs/mod_quickjs/blob/main/docs/builtin_functions_v10.pdf)
- - [Classes](https://github.com/aks-devs/mod_quickjs/blob/main/docs/builtin_classes_v10.pdf)
+ - [Build and installation guide](https://github.com/aks-tel/mod_quickjs/blob/main/docs/installation_guide.pdf)
+ - [Functions](https://github.com/aks-tel/mod_quickjs/blob/main/docs/builtin_functions_v10.pdf)
+ - [Classes](https://github.com/aks-tel/mod_quickjs/blob/main/docs/builtin_classes_v10.pdf)
  - [Examples](examples/)
 
