@@ -42,8 +42,8 @@
 #define JID_NONE            0x0
 #define QJS_CHAT_PROTO      "QJS"
 
-#define MOD_VERSION         "v1.8.1"
-//#define MOD_QUICKJS_DEBUG
+#define MOD_VERSION         "v1.8.1a"
+// #define MOD_QUICKJS_DEBUG
 
 typedef JSModuleDef *(JSInitModuleFunc)(JSContext *ctx, const char *module_name);
 typedef struct js_list_s  js_list_t;

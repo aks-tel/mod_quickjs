@@ -1067,8 +1067,13 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_quickjs_load) {
     SWITCH_ADD_CHAT(chat_interface, QJS_CHAT_PROTO, xxx_chat_api);
 
     globals.fl_shutdown = false;
+
+#ifdef MOD_QUICKJS_DEBUG
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "QuickJS (%s) [*** DEBUG ***]\n", MOD_VERSION);
+#else
     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "QuickJS (%s)\n", MOD_VERSION);
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "(C)2021-2026 akstel.org\n");
+#endif
+    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "(C)2019-2026 akstel.org\n");
 
 done:
     if(xml) {

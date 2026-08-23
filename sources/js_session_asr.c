@@ -43,6 +43,7 @@ static switch_status_t play_and_detect_input_callback(switch_core_session_t *ses
 
     if (!state->done) {
         switch_channel_t *channel = switch_core_session_get_channel(session);
+
         if (input_type == SWITCH_INPUT_TYPE_EVENT) {
             switch_event_t *event;
             event = (switch_event_t *)input;
@@ -56,7 +57,9 @@ static switch_status_t play_and_detect_input_callback(switch_core_session_t *ses
                     if (!strcasecmp(speech_type, "detected-speech")) {
                         const char *result;
 
-                        switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "(%s) DETECTED SPEECH\n", switch_channel_get_name(channel));
+#ifdef MOD_QUICKJS_DEBUG
+                        switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "DETECTED SPEECH (%s)\n", switch_channel_get_name(channel));
+#endif
                         result = switch_event_get_body(event);
                         if (!zstr(result)) {
                             state->result = switch_core_session_strdup(session, result);
@@ -70,7 +73,9 @@ static switch_status_t play_and_detect_input_callback(switch_core_session_t *ses
                     } else if (!strcasecmp(speech_type, "detected-partial-speech")) {
                         // ok
                     } else if (!strcasecmp(speech_type, "begin-speaking")) {
-                        switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "(%s) START OF SPEECH\n", switch_channel_get_name(channel));
+#ifdef MOD_QUICKJS_DEBUG
+                        switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "START OF SPEECH (%s)\n", switch_channel_get_name(channel));
+#endif
                         return SWITCH_STATUS_BREAK;
                     } else if (!strcasecmp("closed", speech_type)) {
                         state->done = PLAY_AND_DETECT_DONE_RECOGNIZING;
@@ -115,7 +120,6 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_play_and_detect_speech_ex(switch_core
     }
 
     if ((status = switch_ivr_detect_speech(session, mod_name, grammar, "", NULL, NULL)) != SWITCH_STATUS_SUCCESS) {
-        /* map SWITCH_STATUS_FALSE to SWITCH_STATUS_GENERR to indicate grammar load failed SWITCH_STATUS_NOT_INITALIZED will be passed back to indicate ASR resource problem */
         if (status == SWITCH_STATUS_FALSE) {
             status = SWITCH_STATUS_GENERR;
         }
@@ -152,10 +156,10 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_play_and_detect_speech_ex(switch_core
 
     if (!state.done) {
         switch_ivr_detect_speech_start_input_timers(session);
-        expiry = timeout ? (timeout + 5 + switch_epoch_time_now(NULL)) : 0;
+        expiry = timeout == 0 ? 0 : ((timeout * 2) + switch_epoch_time_now(NULL)); /* x2 gives asr time to process the audio */
 
 #ifdef MOD_QUICKJS_DEBUG
-        switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "(%s) WAITING FOR RESULT\n", switch_channel_get_name(channel));
+        switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "(%s) WAITING FOR RESULT\n", switch_channel_get_name(channel));
 #endif
 
         while (!state.done && switch_channel_ready(channel)) {
