@@ -1,6 +1,7 @@
 <p>
     A javascript module for the Freeswitch based on <a href="https://bellard.org/quickjs/">quickjs</a>. <br>
-    Fast and functional alternative for mod_v8. <br>   
+    The first version was written to solve troubles which comes after mod_spidermokey was replaced to mod_v8. <br>
+     But soon, it turned into useful for developing IVRs, simple and fast dialplan applications and various scripts for automation, and it's still used in this way today. <br>
 </p>
 
 ## version 1.8
