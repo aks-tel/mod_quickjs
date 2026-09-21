@@ -1,7 +1,8 @@
 <p>
-    A javascript module for the Freeswitch based on <a href="https://bellard.org/quickjs/">quickjs</a>. <br>
-    The first version was written to solve troubles which comes after mod_spidermokey was replaced to mod_v8. <br>
-     But soon, it turned into useful for developing IVRs, simple and fast dialplan applications and various scripts for automation, and it's still used in this way today. <br>
+    This module was originally designed to recover IVRs functionality, following the replacement of mod_spidermonkey with mod_v8 under the Freeswitch. <br>
+    QuickJS was chosen due to its fast script startup, good performance, and memory efficiency, I use JavaScript for writing calls processing applications (IVR, dialers, and so on) and these criterias quite important. <br>
+    Despite infrequent commits, this module is constantly involved and gained new features gradually. <br>
+    I'm primarily interested in the capabilities related with processing audio/video, data operation, and ML (within keeping lightweight and performance).  <br>
 </p>
 
 ## version 1.8
