@@ -961,7 +961,7 @@ SWITCH_STANDARD_APP(quickjs_app) {
     script_args = (argc > 1 ? ((char *)data + (strlen(argv[0]) + 1)) : NULL);
 
     if((status = script_launch(session, script_name, script_args, NULL, false)) != SWITCH_STATUS_SUCCESS) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to launch script (%s)\n", script_name);
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to start script (%s)\n", script_name);
     }
     goto out;
 usage:
@@ -973,9 +973,11 @@ out:
 // chat handler
 static switch_status_t xxx_chat_api(switch_event_t *message_event) {
     switch_status_t status = SWITCH_STATUS_FALSE;
-        const char *to = switch_event_get_header(message_event, "to");      // scriptId
-        const char *from = switch_event_get_header(message_event, "from");  // anything
-        const char *body = switch_event_get_body(message_event);
+    const char *to = switch_event_get_header(message_event, "to");      // scriptId or id@qjs
+    const char *from = switch_event_get_header(message_event, "from");
+    const char *from_title = switch_event_get_header(message_event, "from_title");
+    const char *body = switch_event_get_body(message_event);
+    char *alt_to = NULL;
     script_t *script = NULL;
 
     if(zstr(to) || zstr(body) || zstr(from)) {
@@ -983,11 +985,23 @@ static switch_status_t xxx_chat_api(switch_event_t *message_event) {
         return SWITCH_STATUS_FALSE;
     }
 
-    if((script = script_lookup((char *)to, SWITCH_TRUE))) {
+    if(strchr(to, '@')) {
+        char *ptr = NULL;
+        if(!(alt_to = strdup(to))) {
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Memory failed\n");
+            return status;
+        }
+        ptr = strchr(alt_to, '@');
+        if(!zstr(ptr) && *(ptr + 1)) {
+            *ptr = 0x0;
+        }
+    }
+
+    if((script = script_lookup(alt_to ? alt_to : (char *)to, SWITCH_TRUE))) {
         if(script->chat_queue_ref && script->fl_ready && !script->fl_destroyed) {
             js_chat_message_t *msg = NULL;
 
-            if(js_chat_message_alloc(&msg, from, body, body ? strlen(body) : 0) == SWITCH_STATUS_SUCCESS) {
+            if(js_chat_message_alloc(&msg, from, from_title, body, body ? strlen(body) : 0) == SWITCH_STATUS_SUCCESS) {
 
                 switch_mutex_lock(script->mutex_chat);
                 if(script->chat_queue_ref) {
@@ -1003,9 +1017,10 @@ static switch_status_t xxx_chat_api(switch_event_t *message_event) {
         }
         script_sem_release(script);
     } else {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Script not found (%s)\n", to);
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Script is not started (%s)\n", alt_to ? alt_to : to);
     }
 
+    switch_safe_free(alt_to);
     return status;
 }
 

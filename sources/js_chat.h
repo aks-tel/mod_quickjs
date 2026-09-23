@@ -33,6 +33,7 @@ typedef struct {
 
 typedef struct {
     char        *from;
+    char        *from_title;
     char        *body;
     uint32_t    body_len;
 } js_chat_message_t;
@@ -42,7 +43,7 @@ JSClassID js_chat_get_classid2(JSRuntime *rt);
 switch_status_t js_chat_class_register(JSContext *ctx, JSValue global_obj, JSClassID class_id);
 
 switch_status_t js_chat_message_free(js_chat_message_t **msg);
-switch_status_t js_chat_message_alloc(js_chat_message_t **msg, const char *from, const char *body, uint32_t body_len);
+switch_status_t js_chat_message_alloc(js_chat_message_t **msg, const char *from, const char *from_title, const char *body, uint32_t body_len);
 
 #endif
 

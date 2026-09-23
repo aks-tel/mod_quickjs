@@ -75,6 +75,7 @@ static JSValue js_chat_get_message(JSContext *ctx, JSValueConst this_val, int ar
             ret_obj = JS_NewObject(ctx);
             JS_SetPropertyStr(ctx, ret_obj, "class",JS_NewString(ctx, "ChatMessage"));
             JS_SetPropertyStr(ctx, ret_obj, "from", msg->from ? JS_NewString(ctx, msg->from) : JS_NULL);
+            JS_SetPropertyStr(ctx, ret_obj, "fromTitle", msg->from_title ? JS_NewString(ctx, msg->from_title) : JS_NULL);
             JS_SetPropertyStr(ctx, ret_obj, "body", msg->body ? JS_NewStringLen(ctx, msg->body, msg->body_len) : JS_NULL);
 
             js_chat_message_free(&msg);
@@ -325,13 +326,14 @@ switch_status_t js_chat_message_free(js_chat_message_t **msg) {
     return SWITCH_STATUS_SUCCESS;
 }
 
-switch_status_t js_chat_message_alloc(js_chat_message_t **msg, const char *from, const char *body, uint32_t body_len) {
+switch_status_t js_chat_message_alloc(js_chat_message_t **msg, const char *from, const char *from_title, const char *body, uint32_t body_len) {
     js_chat_message_t *msg_local = NULL;
 
     switch_zmalloc(msg_local, sizeof(js_chat_message_t));
-    msg_local->from = from ? strdup(from) : NULL;
+    msg_local->from = !zstr(from) ? strdup(from) : NULL;
+    msg_local->from_title = !zstr(from_title) ? strdup(from_title) : NULL;
 
-    if(body && body_len) {
+    if(!zstr(body) && body_len) {
         switch_malloc(msg_local->body, body_len);
         memcpy(msg_local->body, body, body_len);
         msg_local->body_len = body_len;
